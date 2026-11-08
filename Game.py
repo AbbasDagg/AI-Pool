@@ -15,24 +15,24 @@ RAIL_WIDTH = 20
 
 BALL_RADIUS = 10
 pool_balls = [
-    {"number": None, "color": "White", "type": "Cue", "position": (0, 0)},  # Cue ball
+    {"number": None, "color": "White", "type": "Cue", "position": (0, 0), "velocity": (0, 0)},  # Cue ball
     # Rack order: apex, then rows of 2, 3, 4, and 5 balls.
     # The 8-ball is centered and the two back corners are different types.
-    {"number": 11, "color": "Red", "type": "Stripe", "position": (0, 0)},
-    {"number": 2, "color": "Blue", "type": "Solid", "position": (0, 0)},
-    {"number": 13, "color": "Orange", "type": "Stripe", "position": (0, 0)},
-    {"number": 3, "color": "Red", "type": "Solid", "position": (0, 0)},
-    {"number": 8, "color": "Black", "type": "8-Ball", "position": (0, 0)},
-    {"number": 15, "color": "Maroon", "type": "Stripe", "position": (0, 0)},
-    {"number": 6, "color": "Green", "type": "Solid", "position": (0, 0)},
-    {"number": 7, "color": "Maroon", "type": "Solid", "position": (0, 0)},
-    {"number": 9, "color": "Yellow", "type": "Stripe", "position": (0, 0)},
-    {"number": 1, "color": "Yellow", "type": "Solid", "position": (0, 0)},
-    {"number": 10, "color": "Blue", "type": "Stripe", "position": (0, 0)},
-    {"number": 12, "color": "Purple", "type": "Stripe", "position": (0, 0)},
-    {"number": 4, "color": "Purple", "type": "Solid", "position": (0, 0)},
-    {"number": 14, "color": "Green", "type": "Stripe", "position": (0, 0)},
-    {"number": 5, "color": "Orange", "type": "Solid", "position": (0, 0)},
+    {"number": 11, "color": "Red", "type": "Stripe", "position": (0, 0), "velocity": (0, 0)},
+    {"number": 2, "color": "Blue", "type": "Solid", "position": (0, 0), "velocity": (0, 0)},
+    {"number": 13, "color": "Orange", "type": "Stripe", "position": (0, 0), "velocity": (0, 0)},
+    {"number": 3, "color": "Red", "type": "Solid", "position": (0, 0), "velocity": (0, 0)},
+    {"number": 8, "color": "Black", "type": "8-Ball", "position": (0, 0), "velocity": (0, 0)},
+    {"number": 15, "color": "Maroon", "type": "Stripe", "position": (0, 0), "velocity": (0, 0)},
+    {"number": 6, "color": "Green", "type": "Solid", "position": (0, 0), "velocity": (0, 0)},
+    {"number": 7, "color": "Maroon", "type": "Solid", "position": (0, 0), "velocity": (0, 0)},
+    {"number": 9, "color": "Yellow", "type": "Stripe", "position": (0, 0), "velocity": (0, 0)},
+    {"number": 1, "color": "Yellow", "type": "Solid", "position": (0, 0), "velocity": (0, 0)},
+    {"number": 10, "color": "Blue", "type": "Stripe", "position": (0, 0), "velocity": (0, 0)},
+    {"number": 12, "color": "Purple", "type": "Stripe", "position": (0, 0), "velocity": (0, 0)},
+    {"number": 4, "color": "Purple", "type": "Solid", "position": (0, 0), "velocity": (0, 0)},
+    {"number": 14, "color": "Green", "type": "Stripe", "position": (0, 0), "velocity": (0, 0)},
+    {"number": 5, "color": "Orange", "type": "Solid", "position": (0, 0), "velocity": (0, 0)},
 ]
 
 # Define drawing function for the room and table
@@ -121,17 +121,62 @@ def draw_hit_power_bar(power):
     filled_width = int(bar_width * power)
     pygame.draw.rect(screen, (0, 255, 0), (bar_x, bar_y, filled_width, bar_height))
 
+def draw_que_ball_aim_line(mode="normal", x = 0, y = 0):
+    cue_ball = pool_balls[0]
+    cue_ball_x, cue_ball_y = cue_ball["position"]
+    
+    if mode == "normal":
+        end_x, end_y = pygame.mouse.get_pos()
+    elif mode == "AI": # let AI pick the target position
+        end_x, end_y = x, y
+
+    # Draw a line from the cue ball to the mouse position
+    pygame.draw.line(screen, (255, 255, 255), (cue_ball_x, cue_ball_y), (end_x, end_y), 2)
+
+def check_ball_collision(ball1, ball2):
+    x1, y1 = ball1["position"]
+    x2, y2 = ball2["position"]
+    distance_squared = (x2 - x1) ** 2 + (y2 - y1) ** 2
+    return distance_squared <= (BALL_RADIUS * 2) ** 2
+
+def check_wall_collision(ball):
+    x, y = ball["position"]
+    table_x = screen.get_width() // 2 - TABLE_WIDTH // 2 
+    table_y = screen.get_height() // 2 - TABLE_HEIGHT // 2
+
+    if x - BALL_RADIUS < table_x + RAIL_WIDTH or x + BALL_RADIUS > table_x + TABLE_WIDTH - RAIL_WIDTH:
+        return True
+    if y - BALL_RADIUS < table_y + RAIL_WIDTH or y + BALL_RADIUS > table_y + TABLE_HEIGHT - RAIL_WIDTH:
+        return True
+    return False
+
+def handle_all_collisions():
+    for i in range(len(pool_balls)):
+        for j in range(i + 1, len(pool_balls)):
+            if check_ball_collision(pool_balls[i], pool_balls[j]):
+                # Handle ball collision (e.g., update velocities)
+                pass
+
+    for ball in pool_balls:
+        if check_wall_collision(ball):
+            # Handle wall collision (e.g., reflect velocity)
+            pass
+
 initial_ball_positions()
 
 while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False  
-
+    # Draw everything
     draw_room_and_table()
     draw_balls()
     draw_hit_power_bar(0)
+    draw_que_ball_aim_line()
 
+    
+
+    # Update the display and control the frame rate
     pygame.display.flip()
     clock.tick(60)
 

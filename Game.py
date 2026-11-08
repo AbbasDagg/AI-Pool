@@ -30,6 +30,25 @@ while running:
     # Draw the pool table
     pygame.draw.rect(screen, FELT_GREEN, (table_x, table_y, TABLE_WIDTH, TABLE_HEIGHT))
 
+    # Draw the pockets
+    pocket_radius = 12
+    pocket_offset = 8
+    pocket_positions = [
+        (table_x - pocket_offset, table_y - pocket_offset),  # Top-left
+        (table_x + TABLE_WIDTH // 2, table_y - pocket_offset),  # Top-center
+        (table_x + TABLE_WIDTH + pocket_offset, table_y - pocket_offset),  # Top-right
+        (table_x - pocket_offset, table_y + TABLE_HEIGHT + pocket_offset),  # Bottom-left
+        (table_x + TABLE_WIDTH // 2, table_y + TABLE_HEIGHT + pocket_offset),  # Bottom-center
+        (table_x + TABLE_WIDTH + pocket_offset, table_y + TABLE_HEIGHT + pocket_offset)  # Bottom-right
+    ]
+
+    for pos in pocket_positions:
+        pygame.draw.circle(screen, (0, 0, 0), pos, pocket_radius)
+
+    # Draw the head string
+    head_string_x = table_x + TABLE_WIDTH // 4
+    pygame.draw.line(screen, (255, 255, 255), (head_string_x, table_y + 25), (head_string_x, table_y + TABLE_HEIGHT - 25), 2)
+
 
     pygame.display.flip()
     clock.tick(60)

@@ -79,18 +79,18 @@ def draw_ball(ball):
         pygame.draw.rect(screen, (255, 255, 255), (x - BALL_RADIUS, y - BALL_RADIUS // 4, 2 * BALL_RADIUS, BALL_RADIUS // 2))
     elif ball["type"] == "8-Ball":
         pygame.draw.circle(screen, (0, 0, 0), (x, y), BALL_RADIUS)
+    elif ball["type"] == "Cue":
+        pygame.draw.circle(screen, (255, 255, 255), (x, y), BALL_RADIUS)
 
-def draw_inital_balls():
-    # Draw the cue ball and rack the object balls in rows of 1, 2, 3, 4, 5.
+def initial_ball_positions():
+    # Set the initial positions of the cue ball and object balls.
     table_x = screen.get_width() // 2 - TABLE_WIDTH // 2
     table_y = screen.get_height() // 2 - TABLE_HEIGHT // 2
 
     cue_ball_x = table_x + TABLE_WIDTH // 4 - BALL_RADIUS
     cue_ball_y = table_y + TABLE_HEIGHT // 2
     pool_balls[0]["position"] = (cue_ball_x, cue_ball_y)
-    pygame.draw.circle(screen, (255, 255, 255), (cue_ball_x, cue_ball_y), BALL_RADIUS)
 
-    # The apex points toward the cue ball; each row is vertically centered.
     rack_x = table_x + (3 * TABLE_WIDTH) // 4
     rack_y = table_y + TABLE_HEIGHT // 2
     row_spacing = BALL_RADIUS * 2
@@ -101,10 +101,27 @@ def draw_inital_balls():
         ball_x = rack_x + row * column_spacing
         ball_y = rack_y - row * row_spacing // 2
         for col in range(row + 1):
-            ball = pool_balls[ball_index]
-            ball["position"] = (ball_x, ball_y + col * row_spacing)
-            draw_ball(ball)
+            pool_balls[ball_index]["position"] = (ball_x, ball_y + col * row_spacing)
             ball_index += 1
+
+def draw_balls():
+    for ball in pool_balls:
+        draw_ball(ball)
+
+def draw_hit_power_bar(power):
+    bar_width = 400
+    bar_height = 20
+    bar_x = screen.get_width() // 2 - bar_width // 2
+    bar_y = screen.get_height() - 50
+
+    # Draw the background of the power bar
+    pygame.draw.rect(screen, (169, 169, 169), (bar_x, bar_y, bar_width, bar_height))
+
+    # Draw the filled portion of the power bar based on the current power level
+    filled_width = int(bar_width * power)
+    pygame.draw.rect(screen, (0, 255, 0), (bar_x, bar_y, filled_width, bar_height))
+
+initial_ball_positions()
 
 while running:
     for event in pygame.event.get():
@@ -112,7 +129,8 @@ while running:
             running = False  
 
     draw_room_and_table()
-    draw_inital_balls()
+    draw_balls()
+    draw_hit_power_bar(0)
 
     pygame.display.flip()
     clock.tick(60)

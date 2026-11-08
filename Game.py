@@ -6,6 +6,7 @@ pygame.display.set_caption("AI Pool")
 clock = pygame.time.Clock()
 running = True
 
+# background colors
 FELT_GREEN = (0, 100, 0)
 RAIL_BROWN = (139, 69, 19)
 ROOM_GREY = (109, 109, 109)
@@ -13,22 +14,24 @@ TABLE_WIDTH = 800
 TABLE_HEIGHT = 400
 RAIL_WIDTH = 20
 
+# ball stuff
+FRICTION = 0.98  
 BALL_RADIUS = 10
 pool_balls = [
     {"number": None, "color": "White", "type": "Cue", "position": (0, 0), "velocity": (0, 0)},  # Cue ball
     # Rack order: apex, then rows of 2, 3, 4, and 5 balls.
     # The 8-ball is centered and the two back corners are different types.
-    {"number": 11, "color": "Red", "type": "Stripe", "position": (0, 0), "velocity": (0, 0)},
-    {"number": 2, "color": "Blue", "type": "Solid", "position": (0, 0), "velocity": (0, 0)},
+    {"number": 11, "color": "Red", "type": "Stripe", "position": (0, 0), "velocity": (40, 0)},
+    {"number": 2, "color": "Blue", "type": "Solid", "position": (0, 0), "velocity": (0, 40)},
     {"number": 13, "color": "Orange", "type": "Stripe", "position": (0, 0), "velocity": (0, 0)},
-    {"number": 3, "color": "Red", "type": "Solid", "position": (0, 0), "velocity": (0, 0)},
+    {"number": 3, "color": "Red", "type": "Solid", "position": (0, 0), "velocity": (40, 40)},
     {"number": 8, "color": "Black", "type": "8-Ball", "position": (0, 0), "velocity": (0, 0)},
     {"number": 15, "color": "Maroon", "type": "Stripe", "position": (0, 0), "velocity": (0, 0)},
     {"number": 6, "color": "Green", "type": "Solid", "position": (0, 0), "velocity": (0, 0)},
-    {"number": 7, "color": "Maroon", "type": "Solid", "position": (0, 0), "velocity": (0, 0)},
+    {"number": 7, "color": "Maroon", "type": "Solid", "position": (0, 0), "velocity": (440, 0)},
     {"number": 9, "color": "Yellow", "type": "Stripe", "position": (0, 0), "velocity": (0, 0)},
-    {"number": 1, "color": "Yellow", "type": "Solid", "position": (0, 0), "velocity": (0, 0)},
-    {"number": 10, "color": "Blue", "type": "Stripe", "position": (0, 0), "velocity": (0, 0)},
+    {"number": 1, "color": "Yellow", "type": "Solid", "position": (0, 0), "velocity": (40, 0)},
+    {"number": 10, "color": "Blue", "type": "Stripe", "position": (0, 0), "velocity": (0, 90)},
     {"number": 12, "color": "Purple", "type": "Stripe", "position": (0, 0), "velocity": (0, 0)},
     {"number": 4, "color": "Purple", "type": "Solid", "position": (0, 0), "velocity": (0, 0)},
     {"number": 14, "color": "Green", "type": "Stripe", "position": (0, 0), "velocity": (0, 0)},
@@ -133,6 +136,20 @@ def draw_que_ball_aim_line(mode="normal", x = 0, y = 0):
     # Draw a line from the cue ball to the mouse position
     pygame.draw.line(screen, (255, 255, 255), (cue_ball_x, cue_ball_y), (end_x, end_y), 2)
 
+def decrease_ball_velocity(ball, friction=FRICTION):
+    vx, vy = ball["velocity"]
+    ball["velocity"] = (vx * friction, vy * friction)
+
+def move_ball(ball):
+    x, y = ball["position"]
+    vx, vy = ball["velocity"]
+    ball["position"] = (x + vx, y + vy)
+
+def update_balls():
+    for ball in pool_balls:
+        move_ball(ball)
+        decrease_ball_velocity(ball)
+
 def check_ball_collision(ball1, ball2):
     x1, y1 = ball1["position"]
     x2, y2 = ball2["position"]
@@ -154,13 +171,13 @@ def handle_all_collisions():
     for i in range(len(pool_balls)):
         for j in range(i + 1, len(pool_balls)):
             if check_ball_collision(pool_balls[i], pool_balls[j]):
-                # Handle ball collision (e.g., update velocities)
+                # Handle ball collision (e.g., exchange velocities)
                 pass
 
     for ball in pool_balls:
         if check_wall_collision(ball):
             # Handle wall collision (e.g., reflect velocity)
-            pass
+            ball["velocity"] = (-ball["velocity"][0], -ball["velocity"][1])
 
 initial_ball_positions()
 
@@ -173,8 +190,9 @@ while running:
     draw_balls()
     draw_hit_power_bar(0)
     draw_que_ball_aim_line()
+    handle_all_collisions()
+    update_balls()
 
-    
 
     # Update the display and control the frame rate
     pygame.display.flip()

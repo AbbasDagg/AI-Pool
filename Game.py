@@ -28,12 +28,12 @@ pool_balls = [
     {"number": 8, "color": "Black", "type": "8-Ball", "position": (0, 0), "velocity": (0, 0)},
     {"number": 15, "color": "Maroon", "type": "Stripe", "position": (0, 0), "velocity": (0, 0)},
     {"number": 6, "color": "Green", "type": "Solid", "position": (0, 0), "velocity": (0, 0)},
-    {"number": 7, "color": "Maroon", "type": "Solid", "position": (0, 0), "velocity": (440, 0)},
+    {"number": 7, "color": "Maroon", "type": "Solid", "position": (0, 0), "velocity": (40, 0)},
     {"number": 9, "color": "Yellow", "type": "Stripe", "position": (0, 0), "velocity": (0, 0)},
-    {"number": 1, "color": "Yellow", "type": "Solid", "position": (0, 0), "velocity": (40, 0)},
-    {"number": 10, "color": "Blue", "type": "Stripe", "position": (0, 0), "velocity": (0, 90)},
+    {"number": 1, "color": "Yellow", "type": "Solid", "position": (0, 0), "velocity": (400, 80)},
+    {"number": 10, "color": "Blue", "type": "Stripe", "position": (0, 0), "velocity": (20, 50)},
     {"number": 12, "color": "Purple", "type": "Stripe", "position": (0, 0), "velocity": (0, 0)},
-    {"number": 4, "color": "Purple", "type": "Solid", "position": (0, 0), "velocity": (0, 0)},
+    {"number": 4, "color": "Purple", "type": "Solid", "position": (0, 0), "velocity": (10, 50)},
     {"number": 14, "color": "Green", "type": "Stripe", "position": (0, 0), "velocity": (0, 0)},
     {"number": 5, "color": "Orange", "type": "Solid", "position": (0, 0), "velocity": (0, 0)},
 ]
@@ -136,19 +136,6 @@ def draw_que_ball_aim_line(mode="normal", x = 0, y = 0):
     # Draw a line from the cue ball to the mouse position
     pygame.draw.line(screen, (255, 255, 255), (cue_ball_x, cue_ball_y), (end_x, end_y), 2)
 
-def decrease_ball_velocity(ball, friction=FRICTION):
-    vx, vy = ball["velocity"]
-    ball["velocity"] = (vx * friction, vy * friction)
-
-def move_ball(ball):
-    x, y = ball["position"]
-    vx, vy = ball["velocity"]
-    ball["position"] = (x + vx, y + vy)
-
-def update_balls():
-    for ball in pool_balls:
-        move_ball(ball)
-        decrease_ball_velocity(ball)
 
 def check_ball_collision(ball1, ball2):
     x1, y1 = ball1["position"]
@@ -161,9 +148,9 @@ def check_wall_collision(ball):
     table_x = screen.get_width() // 2 - TABLE_WIDTH // 2 
     table_y = screen.get_height() // 2 - TABLE_HEIGHT // 2
 
-    if x - BALL_RADIUS < table_x + RAIL_WIDTH or x + BALL_RADIUS > table_x + TABLE_WIDTH - RAIL_WIDTH:
+    if x - BALL_RADIUS < table_x  or x + BALL_RADIUS > table_x + TABLE_WIDTH:
         return True
-    if y - BALL_RADIUS < table_y + RAIL_WIDTH or y + BALL_RADIUS > table_y + TABLE_HEIGHT - RAIL_WIDTH:
+    if y - BALL_RADIUS < table_y  or y + BALL_RADIUS > table_y + TABLE_HEIGHT:
         return True
     return False
 
@@ -179,8 +166,49 @@ def handle_all_collisions():
             # Handle wall collision (e.g., reflect velocity)
             ball["velocity"] = (-ball["velocity"][0], -ball["velocity"][1])
 
-initial_ball_positions()
 
+def decrease_ball_velocity(ball, friction=FRICTION):
+    vx, vy = ball["velocity"]
+    ball["velocity"] = (vx * friction, vy * friction)
+
+def move_ball(ball):
+    x, y = ball["position"]
+    vx, vy = ball["velocity"]
+    table_x = screen.get_width() // 2 - TABLE_WIDTH // 2
+    table_y = screen.get_height() // 2 - TABLE_HEIGHT // 2
+
+    left = table_x + BALL_RADIUS
+    right = table_x + TABLE_WIDTH - BALL_RADIUS
+    top = table_y + BALL_RADIUS
+    bottom = table_y + TABLE_HEIGHT - BALL_RADIUS
+
+    # Move first, then check if we collide, if we do, reflect the velocity and move back into the table CORRECTLY!
+    new_x = x + vx
+    new_y = y + vy
+    if new_x < left or new_x > right:
+        vx = -vx
+        extra_x = abs(new_x - (left if new_x < left else right))
+        if new_x < left:
+            new_x = left + extra_x
+        else:
+            new_x = right - extra_x
+    if new_y < top or new_y > bottom:
+        vy = -vy
+        extra_y = abs(new_y - (top if new_y < top else bottom))
+        if new_y < top:
+            new_y = top + extra_y
+        else:
+            new_y = bottom - extra_y
+
+    ball["position"] = (new_x, new_y)
+    ball["velocity"] = (vx, vy)
+
+def update_balls():
+    for ball in pool_balls:
+        move_ball(ball)
+        decrease_ball_velocity(ball)
+
+initial_ball_positions()
 while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:

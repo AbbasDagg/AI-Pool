@@ -136,9 +136,10 @@ def draw_que_ball_aim_line(mode="normal", x = 0, y = 0):
     # Draw a line from the cue ball to the mouse position
     pygame.draw.line(screen, (255, 255, 255), (cue_ball_x, cue_ball_y), (end_x, end_y), 2)
 
-def decrease_ball_velocity(ball, friction=FRICTION):
-    vx, vy = ball["velocity"]
-    ball["velocity"] = (vx * friction, vy * friction)
+def decrease_balls_velocity(friction=FRICTION):
+    for ball in pool_balls:
+        vx, vy = ball["velocity"]
+        ball["velocity"] = (vx * friction, vy * friction)
 
 def future_ball_pos(ball):
     x, y = ball["position"]
@@ -149,12 +150,13 @@ def future_ball_pos(ball):
 def check_ball_collision(ball1, ball2):
     x1, y1 = ball1["position"]
     x2, y2 = ball2["position"]
+    collided = False
 
     future_X1, future_y1 = future_ball_pos(ball1)
     future_X2, future_y2 = future_ball_pos(ball2)
 
     distance_squared = (x2 - x1) ** 2 + (y2 - y1) ** 2
-    return distance_squared <= (BALL_RADIUS * 2) ** 2
+    return collided
 
 def check_wall_collision(ball):
     x, y = ball["position"]
@@ -162,6 +164,8 @@ def check_wall_collision(ball):
     table_x = screen.get_width() // 2 - TABLE_WIDTH // 2
     table_y = screen.get_height() // 2 - TABLE_HEIGHT // 2
     future_X, future_y = future_ball_pos(ball)
+
+    collided = False
 
     left = table_x + BALL_RADIUS
     right = table_x + TABLE_WIDTH - BALL_RADIUS
@@ -171,6 +175,7 @@ def check_wall_collision(ball):
     # with future pos, check if we collide, if we do, reflect the velocity and move back into the table CORRECTLY!
     # rail collision:
     if future_X < left or future_X > right:
+        collided = True
         vx = -vx
         extra_x = abs(future_X - (left if future_X < left else right))
         if future_X < left:
@@ -178,6 +183,7 @@ def check_wall_collision(ball):
         else:
             future_X = right - extra_x
     if future_y < top or future_y > bottom:
+        collided = True
         vy = -vy
         extra_y = abs(future_y - (top if future_y < top else bottom))
         if future_y < top:
@@ -188,6 +194,8 @@ def check_wall_collision(ball):
     ball["position"] = (future_X, future_y)
     ball["velocity"] = (vx, vy)
 
+    return collided
+
 def handle_all_collisions():
     for i in range(len(pool_balls)):
         for j in range(i + 1, len(pool_balls)):
@@ -196,18 +204,12 @@ def handle_all_collisions():
                 pass
 
     for ball in pool_balls:
-        if check_wall_collision(ball):
-            # Handle wall collision (e.g., reflect velocity)
-            ball["velocity"] = (-ball["velocity"][0], -ball["velocity"][1])
-        else:
-            ball["position"] = future_ball_pos(ball)
+        check_wall_collision(ball)
 
 
 def update_balls():
-    for ball in pool_balls:
-        handle_all_collisions()
-        decrease_ball_velocity(ball)
-
+    handle_all_collisions()
+    decrease_balls_velocity()
 
 
 initial_ball_positions()

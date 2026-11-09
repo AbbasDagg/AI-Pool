@@ -491,7 +491,7 @@ def play_game(game_data, game_speed):
             if event.type == pygame.QUIT:
                 running = False  
 
-        CURR_POWER = get_power(game_data)
+        CURR_POWER = 0
         for _ in range(int(GAME_SPEED)):
             update_balls(game_data)
 
@@ -506,6 +506,7 @@ def play_game(game_data, game_speed):
 
         # Check for shooting
         if not are_balls_moving(game_data) and not game_data["LOST"]:
+            CURR_POWER = get_power(game_data)
             # Can take input
             if game_data["method"] == "normal":
                 if pygame.mouse.get_pressed()[0]:
@@ -533,7 +534,7 @@ def main():
         (500, 400),  # Move 3: Aim at (500, 400)
         # Add more moves as needed
     ]
-    game_speed = 1
+    game_speed = 5
 
     # Play the game with the example moves
     game_data = play_all_moves(example_moves)

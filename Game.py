@@ -1,5 +1,7 @@
 import math
 import pygame
+import copy
+
 
 pygame.init()
 SCREEN_WIDTH = 1000
@@ -144,20 +146,27 @@ def draw_hit_power_bar(power):
 def draw_que_ball_aim_line(game):
     cue_ball = game["pool_balls"][0]
     cue_ball_x, cue_ball_y = cue_ball["position"]
-    end_x, end_y = get_x_y()
+    end_x, end_y = get_x_y(game)
 
+    if end_x is None or end_y is None:
+        return  # No valid aim position
     # Draw a line from the cue ball to the aim position (mouse or AI)
     pygame.draw.line(screen, (255, 255, 255), (cue_ball_x, cue_ball_y), (end_x, end_y), 2)
 
 # Where the AI wants to aim. The AI will set this later; (0, 0) is just a placeholder.
 ai_target = (0, 0)
 
-def get_x_y():
+def get_x_y(game):
     # The ONLY place that decides who is aiming: the mouse or the AI.
+    method = game["method"]
+
     if method == "normal":
         return pygame.mouse.get_pos()
     elif method == "AI":
-        return ai_target
+        if game["i"] < len(game["MOVES"]):
+            return game["MOVES"][game["i"]]
+        else:
+            return None, None  # No more moves available
 
 def eight_ball_potted(game):
     # Check if the 8-ball is potted
@@ -375,7 +384,9 @@ def power_to_velocity(power):
 def aim_cue_ball(game, power):
     cue_ball = game["pool_balls"][0]
     cue_ball_x, cue_ball_y = cue_ball["position"]
-    x, y = get_x_y()
+    x, y = get_x_y(game)
+    if x is None or y is None:
+        return  # No valid aim position
 
     # Calculate the direction from the cue ball to the given position
     dx = x - cue_ball_x
@@ -397,12 +408,14 @@ def get_power(game):
     # Get the current power level based on the aim position (mouse or AI)
     cue_ball = game["pool_balls"][0]
     cue_x, cue_y = cue_ball["position"]
-    x, y = get_x_y()
+    x, y = get_x_y(game)
+    if x is None or y is None:
+        return 0  # No valid aim position
     # Calculate power based on the distance of the aim position from the center of the cue ball
     distance = (x - cue_x) ** 2 + (y - cue_y) ** 2
     return min(max(distance / 100000, 0), 1)  # Normalize to a value between 0 and 1
 
-def new_game():
+def new_game(method="normal"):
     pool_balls = [
     {"number": None, "color": "White", "type": "Cue", "position": (0, 0), "velocity": (0, 0), "potted": False},  # Cue ball
     # Rack order: apex, then rows of 2, 3, 4, and 5 balls.
@@ -430,16 +443,40 @@ def new_game():
     SCORE = 0
     SHOT_COUNT = 0  # Count of shots taken
     MOVES = []  # List to store moves for AI mode
+    i = 0  # Index for moves
 
     return {
         "pool_balls": pool_balls,
         "LOST": LOST,
         "SCORE": SCORE,
         "SHOT_COUNT": SHOT_COUNT,
-        "MOVES": MOVES,}
+        "MOVES": MOVES,
+        "i": i,
+        "method": method
+    }
+
+# do the shot but dont draw it
+def simulate_shot(game):
+    limit = 3000
+
+    x, y = get_x_y(game)
+    if x is None or y is None:
+        return  # No valid aim position
+
+    # Aim and shoot the cue ball with the specified power
+    power = get_power(game)
+    aim_cue_ball(game, power)
+
+    # Simulate until all balls stop moving
+    while are_balls_moving(game) and limit > 0:
+        update_balls(game)
+        limit -= 1
+        
+    game["SCORE"] += SHOT_PENALTY
+    game["SHOT_COUNT"] += 1
+    game["i"] += 1
 
 game_data = new_game()
-method = "normal"  # Change to "AI" for AI mode
 GAME_SPEED = 1
 
 while running:
@@ -463,10 +500,17 @@ while running:
     # Check for shooting
     if not are_balls_moving(game_data) and not game_data["LOST"]:
         # Can take input
-        if pygame.mouse.get_pressed()[0]:
-            game_data["SCORE"] += SHOT_PENALTY
-            game_data["SHOT_COUNT"] += 1
-            aim_cue_ball(game_data, CURR_POWER)
+        if game_data["method"] == "normal":
+            if pygame.mouse.get_pressed()[0]:
+                game_data["SCORE"] += SHOT_PENALTY
+                game_data["SHOT_COUNT"] += 1
+                aim_cue_ball(game_data, CURR_POWER)
+        elif game_data["method"] == "AI":
+            if game_data["i"] < len(game_data["MOVES"]):
+                aim_cue_ball(game_data, CURR_POWER)
+                game_data["i"] += 1 # we already took it before, so move to the next one
+                game_data["SCORE"] += SHOT_PENALTY
+                game_data["SHOT_COUNT"] += 1
 
     # Update the display and control the frame rate
     pygame.display.flip()

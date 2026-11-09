@@ -38,6 +38,7 @@ CUE_BALL_PENALTY = -5  # Penalty for potting the cue ball
 EIGHT_BALL_PENALTY = -1000  # Penalty for potting the 8-ball early
 BALL_POT_REWARD = 3  # Reward for potting a regular ball
 SHOT_PENALTY = 0  # Penalty for taking a shot (to encourage efficiency)
+SHOT_COUNT = 0  # Count of shots taken
 
 pool_balls = [
     {"number": None, "color": "White", "type": "Cue", "position": (0, 0), "velocity": (0, 0), "potted": False},  # Cue ball
@@ -140,6 +141,11 @@ def draw_score():
     font = pygame.font.Font(None, 36)
     score_text = font.render(f"Score: {SCORE}", True, (255, 255, 255))
     screen.blit(score_text, (10, 10))
+
+def draw_shot_count():
+    font = pygame.font.Font(None, 36)
+    shot_text = font.render(f"Shots Taken: {SHOT_COUNT}", True, (255, 255, 255))
+    screen.blit(shot_text, (10, 50))
 
 def draw_hit_power_bar(power):
     bar_width = 400
@@ -433,12 +439,14 @@ while running:
     draw_que_ball_aim_line()
     draw_loss_message() if LOST else None
     draw_score()
+    draw_shot_count()
 
     # Check for shooting
     if not are_balls_moving() and not LOST:
         # Can take input
         if pygame.mouse.get_pressed()[0]:
-            SCORE += SHOT_PENALTY  # Apply shot penalty for taking a shot
+            SCORE += SHOT_PENALTY
+            SHOT_COUNT += 1
             aim_cue_ball(CURR_POWER)
     update_balls()
 

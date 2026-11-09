@@ -39,6 +39,7 @@ EIGHT_BALL_PENALTY = -1000  # Penalty for potting the 8-ball early
 BALL_POT_REWARD = 3  # Reward for potting a regular ball
 SHOT_PENALTY = 0  # Penalty for taking a shot (to encourage efficiency)
 SHOT_COUNT = 0  # Count of shots taken
+GAME_SPEED = 1  # Speed multiplier for the game (1.0 = normal speed)
 
 pool_balls = [
     {"number": None, "color": "White", "type": "Cue", "position": (0, 0), "velocity": (0, 0), "potted": False},  # Cue ball
@@ -423,6 +424,7 @@ def get_power():
 
 initial_ball_positions()
 method = "normal"  # Change to "AI" for AI mode
+GAME_SPEED = 1
 
 while running:
     for event in pygame.event.get():
@@ -432,6 +434,9 @@ while running:
     CURR_POWER = get_power()
     LOST = eight_ball_potted() and not all_balls_potted()
     
+    for _ in range(int(GAME_SPEED)):
+        update_balls()
+        
     # Draw everything
     draw_room_and_table()
     draw_balls()
@@ -448,7 +453,6 @@ while running:
             SCORE += SHOT_PENALTY
             SHOT_COUNT += 1
             aim_cue_ball(CURR_POWER)
-    update_balls()
 
     # Update the display and control the frame rate
     pygame.display.flip()

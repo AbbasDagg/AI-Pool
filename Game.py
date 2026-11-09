@@ -18,23 +18,24 @@ RAIL_WIDTH = 20
 # ball stuff
 FRICTION = 0.98  
 BALL_RADIUS = 10
+CURR_POWER = 0.5  # Default power for aiming
 pool_balls = [
     {"number": None, "color": "White", "type": "Cue", "position": (0, 0), "velocity": (0, 0)},  # Cue ball
     # Rack order: apex, then rows of 2, 3, 4, and 5 balls.
     # The 8-ball is centered and the two back corners are different types.
-    {"number": 11, "color": "Red", "type": "Stripe", "position": (0, 0), "velocity": (40, 0)},
-    {"number": 2, "color": "Blue", "type": "Solid", "position": (0, 0), "velocity": (0, 40)},
+    {"number": 11, "color": "Red", "type": "Stripe", "position": (0, 0), "velocity": (0, 0)},
+    {"number": 2, "color": "Blue", "type": "Solid", "position": (0, 0), "velocity": (0, 0)},
     {"number": 13, "color": "Orange", "type": "Stripe", "position": (0, 0), "velocity": (0, 0)},
-    {"number": 3, "color": "Red", "type": "Solid", "position": (0, 0), "velocity": (40, 40)},
+    {"number": 3, "color": "Red", "type": "Solid", "position": (0, 0), "velocity": (0, 0)},
     {"number": 8, "color": "Black", "type": "8-Ball", "position": (0, 0), "velocity": (0, 0)},
     {"number": 15, "color": "Maroon", "type": "Stripe", "position": (0, 0), "velocity": (0, 0)},
     {"number": 6, "color": "Green", "type": "Solid", "position": (0, 0), "velocity": (0, 0)},
-    {"number": 7, "color": "Maroon", "type": "Solid", "position": (0, 0), "velocity": (40, 0)},
+    {"number": 7, "color": "Maroon", "type": "Solid", "position": (0, 0), "velocity": (0, 0)},
     {"number": 9, "color": "Yellow", "type": "Stripe", "position": (0, 0), "velocity": (0, 0)},
-    {"number": 1, "color": "Yellow", "type": "Solid", "position": (0, 0), "velocity": (40, 80)},
-    {"number": 10, "color": "Blue", "type": "Stripe", "position": (0, 0), "velocity": (20, 50)},
+    {"number": 1, "color": "Yellow", "type": "Solid", "position": (0, 0), "velocity": (0, 0)},
+    {"number": 10, "color": "Blue", "type": "Stripe", "position": (0, 0), "velocity": (0, 0)},
     {"number": 12, "color": "Purple", "type": "Stripe", "position": (0, 0), "velocity": (0, 0)},
-    {"number": 4, "color": "Purple", "type": "Solid", "position": (0, 0), "velocity": (10, 50)},
+    {"number": 4, "color": "Purple", "type": "Solid", "position": (0, 0), "velocity": (0, 0)},
     {"number": 14, "color": "Green", "type": "Stripe", "position": (0, 0), "velocity": (0, 0)},
     {"number": 5, "color": "Orange", "type": "Solid", "position": (0, 0), "velocity": (0, 0)},
 ]
@@ -266,6 +267,45 @@ def update_balls():
         if (vx ** 2 + vy ** 2) ** 0.5 < STOP_SPEED:
             ball["velocity"] = (0, 0)
 
+def are_balls_moving():
+    return any(vx != 0 or vy != 0
+               for vx, vy in (ball["velocity"] for ball in pool_balls))
+
+def power_to_velocity(power):
+    # Convert a power value (0 to 1) to a velocity magnitude for the cue ball.
+    max_velocity = 50  # Adjust this value for desired maximum speed
+    return power * max_velocity
+
+def aim_cue_ball(power):
+    cue_ball = pool_balls[0]
+    cue_ball_x, cue_ball_y = cue_ball["position"]
+    mouse_x, mouse_y = pygame.mouse.get_pos()
+
+    # Calculate the direction from the cue ball to the mouse position
+    dx = mouse_x - cue_ball_x
+    dy = mouse_y - cue_ball_y
+    distance = (dx ** 2 + dy ** 2) ** 0.5
+
+    if distance == 0:
+        return  # Avoid division by zero
+
+    # Normalize the direction vector
+    direction_x = dx / distance
+    direction_y = dy / distance
+
+    # Calculate the velocity based on the power and direction
+    velocity_magnitude = power_to_velocity(power)
+    cue_ball["velocity"] = (direction_x * velocity_magnitude, direction_y * velocity_magnitude)
+
+def get_power():
+    # Get the current power level based on mouse position or other input
+    mouse_x, mouse_y = pygame.mouse.get_pos()
+    cue_ball = pool_balls[0]
+    cue_x, cue_y = cue_ball["position"]
+
+    # Calculate power based on the distance of the mouse from the center of the power bar
+    distance = (mouse_y - cue_y) ** 2 + (mouse_x - cue_x) ** 2
+    return min(max(distance / 100000, 0), 1)  # Normalize to a value between 0 and 1
 
 initial_ball_positions()
 
@@ -273,12 +313,19 @@ while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False  
+    CURR_POWER = get_power()
+    
     # Draw everything
     draw_room_and_table()
     draw_balls()
-    draw_hit_power_bar(0)
+    draw_hit_power_bar(CURR_POWER)
     draw_que_ball_aim_line()
 
+    # Check for shooting
+    if not are_balls_moving():
+        # Can take input
+        if pygame.mouse.get_pressed()[0]:
+            aim_cue_ball(CURR_POWER)
     update_balls()
 
 

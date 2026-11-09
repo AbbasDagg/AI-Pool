@@ -1,3 +1,4 @@
+import math
 import pygame
 
 pygame.init()
@@ -141,29 +142,62 @@ def decrease_balls_velocity(friction=FRICTION):
         vx, vy = ball["velocity"]
         ball["velocity"] = (vx * friction, vy * friction)
 
-def future_ball_pos(ball):
+def future_ball_pos(ball, step=1):
+    # step = what fraction of the velocity to move by (e.g. 0.25 = a quarter of a frame)
     x, y = ball["position"]
     vx, vy = ball["velocity"]
-    return x + vx, y + vy
+    return x + vx * step, y + vy * step
 
-# TODO
 def check_ball_collision(ball1, ball2):
+    # Balls are already moved, so we just check if they overlap RIGHT NOW.
     x1, y1 = ball1["position"]
     x2, y2 = ball2["position"]
-    collided = False
-
-    future_X1, future_y1 = future_ball_pos(ball1)
-    future_X2, future_y2 = future_ball_pos(ball2)
-
     distance_squared = (x2 - x1) ** 2 + (y2 - y1) ** 2
-    return collided
+    return distance_squared < (BALL_RADIUS * 2) ** 2
 
-def check_wall_collision(ball):
+def resolve_ball_collision(ball1, ball2):
+    x1, y1 = ball1["position"]
+    x2, y2 = ball2["position"]
+    vx1, vy1 = ball1["velocity"]
+    vx2, vy2 = ball2["velocity"]
+
+    # 1. The normal: unit vector pointing from ball1's center to ball2's center
+    dx = x2 - x1
+    dy = y2 - y1
+    distance = (dx ** 2 + dy ** 2) ** 0.5
+    if distance == 0:
+        return  # exactly on top of each other, no direction to push, skip
+    nx = dx / distance
+    ny = dy / distance
+
+    # 2. Push them apart so they just touch (each moves half the overlap)
+    overlap = BALL_RADIUS * 2 - distance
+    x1 -= nx * overlap / 2
+    y1 -= ny * overlap / 2
+    x2 += nx * overlap / 2
+    y2 += ny * overlap / 2
+    ball1["position"] = (x1, y1)
+    ball2["position"] = (x2, y2)
+
+    # 3. How fast are they approaching each other along the normal? (dot product)
+    approach_speed = (vx1 - vx2) * nx + (vy1 - vy2) * ny
+    if approach_speed <= 0:
+        return  # already moving apart, don't bounce again
+
+    # 4. Swap the velocity along the normal (equal mass, elastic collision)
+    vx1 -= approach_speed * nx
+    vy1 -= approach_speed * ny
+    vx2 += approach_speed * nx
+    vy2 += approach_speed * ny
+    ball1["velocity"] = (vx1, vy1)
+    ball2["velocity"] = (vx2, vy2)
+
+def check_wall_collision(ball, step=1):
     x, y = ball["position"]
     vx, vy = ball["velocity"]
     table_x = screen.get_width() // 2 - TABLE_WIDTH // 2
     table_y = screen.get_height() // 2 - TABLE_HEIGHT // 2
-    future_X, future_y = future_ball_pos(ball)
+    future_X, future_y = future_ball_pos(ball, step)
 
     collided = False
 
@@ -196,20 +230,41 @@ def check_wall_collision(ball):
 
     return collided
 
-def handle_all_collisions():
+MAX_STEP_DISTANCE = BALL_RADIUS / 2  # no ball may move further than this in one substep
+STOP_SPEED = 0.05  # below this speed a ball counts as stopped
+
+def physics_substep(step):
+    # 1 + 2: move every ball a little, bouncing off the rails
+    for ball in pool_balls:
+        check_wall_collision(ball, step)
+
+    # 3: resolve every overlapping pair (each pair checked once)
     for i in range(len(pool_balls)):
         for j in range(i + 1, len(pool_balls)):
             if check_ball_collision(pool_balls[i], pool_balls[j]):
-                # Handle ball collision (e.g., exchange velocities)
-                pass
-
-    for ball in pool_balls:
-        check_wall_collision(ball)
-
+                resolve_ball_collision(pool_balls[i], pool_balls[j])
 
 def update_balls():
-    handle_all_collisions()
+    # How far does the fastest ball move this frame?
+    fastest = 0
+    for ball in pool_balls:
+        vx, vy = ball["velocity"]
+        fastest = max(fastest, (vx ** 2 + vy ** 2) ** 0.5)
+
+    # Split the frame into enough small steps that nobody moves too far per step.
+    # e.g. fastest = 40 px/frame, MAX_STEP_DISTANCE = 5 -> 8 steps of 1/8 each
+    substeps = max(1, math.ceil(fastest / MAX_STEP_DISTANCE))
+    for _ in range(substeps):
+        physics_substep(1 / substeps)
+
+    # Friction once per frame (not per substep)
     decrease_balls_velocity()
+
+    # Snap very slow balls to a full stop, otherwise they creep forever
+    for ball in pool_balls:
+        vx, vy = ball["velocity"]
+        if (vx ** 2 + vy ** 2) ** 0.5 < STOP_SPEED:
+            ball["velocity"] = (0, 0)
 
 
 initial_ball_positions()

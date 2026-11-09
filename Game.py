@@ -21,25 +21,42 @@ BALL_RADIUS = 10
 CURR_POWER = 0.5  # Default power for aiming
 MAX_STEP_DISTANCE = BALL_RADIUS / 2  # no ball may move further than this in one substep
 STOP_SPEED = 0.05  # below this speed a ball counts as stopped
+
+# pockets
+POCKET_RADIUS = 18  # size of the black hole that gets drawn
+POCKET_OFFSET = 8   # how far the pocket center sits outside the felt edge
+# Near a pocket there's no cushion, so balls don't bounce there. This is how close (to the pocket center) that is.
+# Corner pockets have a wider opening than side pockets, like a real table.
+CORNER_POCKET_MOUTH = 45
+SIDE_POCKET_MOUTH = 30
+SIDE_POCKETS = (1, 4)  # indexes of the side pockets in get_pocket_positions()
+
+# Params
+LOST = False  # True if the player has lost (potted the 8-ball early)
+SCORE = 0
+CUE_BALL_PENALTY = -5  # Penalty for potting the cue ball
+EIGHT_BALL_PENALTY = -1000  # Penalty for potting the 8-ball early
+BALL_POT_REWARD = 3  # Reward for potting a regular ball
+
 pool_balls = [
-    {"number": None, "color": "White", "type": "Cue", "position": (0, 0), "velocity": (0, 0)},  # Cue ball
+    {"number": None, "color": "White", "type": "Cue", "position": (0, 0), "velocity": (0, 0), "potted": False},  # Cue ball
     # Rack order: apex, then rows of 2, 3, 4, and 5 balls.
     # The 8-ball is centered and the two back corners are different types.
-    {"number": 11, "color": "Red", "type": "Stripe", "position": (0, 0), "velocity": (0, 0)},
-    {"number": 2, "color": "Blue", "type": "Solid", "position": (0, 0), "velocity": (0, 0)},
-    {"number": 13, "color": "Orange", "type": "Stripe", "position": (0, 0), "velocity": (0, 0)},
-    {"number": 3, "color": "Red", "type": "Solid", "position": (0, 0), "velocity": (0, 0)},
-    {"number": 8, "color": "Black", "type": "8-Ball", "position": (0, 0), "velocity": (0, 0)},
-    {"number": 15, "color": "Maroon", "type": "Stripe", "position": (0, 0), "velocity": (0, 0)},
-    {"number": 6, "color": "Green", "type": "Solid", "position": (0, 0), "velocity": (0, 0)},
-    {"number": 7, "color": "Maroon", "type": "Solid", "position": (0, 0), "velocity": (0, 0)},
-    {"number": 9, "color": "Yellow", "type": "Stripe", "position": (0, 0), "velocity": (0, 0)},
-    {"number": 1, "color": "Yellow", "type": "Solid", "position": (0, 0), "velocity": (0, 0)},
-    {"number": 10, "color": "Blue", "type": "Stripe", "position": (0, 0), "velocity": (0, 0)},
-    {"number": 12, "color": "Purple", "type": "Stripe", "position": (0, 0), "velocity": (0, 0)},
-    {"number": 4, "color": "Purple", "type": "Solid", "position": (0, 0), "velocity": (0, 0)},
-    {"number": 14, "color": "Green", "type": "Stripe", "position": (0, 0), "velocity": (0, 0)},
-    {"number": 5, "color": "Orange", "type": "Solid", "position": (0, 0), "velocity": (0, 0)},
+    {"number": 11, "color": "Red", "type": "Stripe", "position": (0, 0), "velocity": (0, 0), "potted": False},
+    {"number": 2, "color": "Blue", "type": "Solid", "position": (0, 0), "velocity": (0, 0), "potted": False},
+    {"number": 13, "color": "Orange", "type": "Stripe", "position": (0, 0), "velocity": (0, 0), "potted": False},
+    {"number": 3, "color": "Red", "type": "Solid", "position": (0, 0), "velocity": (0, 0), "potted": False},
+    {"number": 8, "color": "Black", "type": "8-Ball", "position": (0, 0), "velocity": (0, 0), "potted": False},
+    {"number": 15, "color": "Maroon", "type": "Stripe", "position": (0, 0), "velocity": (0, 0), "potted": False},
+    {"number": 6, "color": "Green", "type": "Solid", "position": (0, 0), "velocity": (0, 0), "potted": False},
+    {"number": 7, "color": "Maroon", "type": "Solid", "position": (0, 0), "velocity": (0, 0), "potted": False},
+    {"number": 9, "color": "Yellow", "type": "Stripe", "position": (0, 0), "velocity": (0, 0), "potted": False},
+    {"number": 1, "color": "Yellow", "type": "Solid", "position": (0, 0), "velocity": (0, 0), "potted": False},
+    {"number": 10, "color": "Blue", "type": "Stripe", "position": (0, 0), "velocity": (0, 0), "potted": False},
+    {"number": 12, "color": "Purple", "type": "Stripe", "position": (0, 0), "velocity": (0, 0), "potted": False},
+    {"number": 4, "color": "Purple", "type": "Solid", "position": (0, 0), "velocity": (0, 0), "potted": False},
+    {"number": 14, "color": "Green", "type": "Stripe", "position": (0, 0), "velocity": (0, 0), "potted": False},
+    {"number": 5, "color": "Orange", "type": "Solid", "position": (0, 0), "velocity": (0, 0), "potted": False},
 ]
 
 # Define drawing function for the room and table
@@ -58,19 +75,8 @@ def draw_room_and_table():
     pygame.draw.rect(screen, FELT_GREEN, (table_x, table_y, TABLE_WIDTH, TABLE_HEIGHT))
 
     # Draw the pockets
-    pocket_radius = 12
-    pocket_offset = 8
-    pocket_positions = [
-        (table_x - pocket_offset, table_y - pocket_offset),  # Top-left
-        (table_x + TABLE_WIDTH // 2, table_y - pocket_offset),  # Top-center
-        (table_x + TABLE_WIDTH + pocket_offset, table_y - pocket_offset),  # Top-right
-        (table_x - pocket_offset, table_y + TABLE_HEIGHT + pocket_offset),  # Bottom-left
-        (table_x + TABLE_WIDTH // 2, table_y + TABLE_HEIGHT + pocket_offset),  # Bottom-center
-        (table_x + TABLE_WIDTH + pocket_offset, table_y + TABLE_HEIGHT + pocket_offset)  # Bottom-right
-    ]
-
-    for pos in pocket_positions:
-        pygame.draw.circle(screen, (0, 0, 0), pos, pocket_radius)
+    for pos in get_pocket_positions():
+        pygame.draw.circle(screen, (0, 0, 0), pos, POCKET_RADIUS)
 
     # Draw the head string
     head_string_x = table_x + TABLE_WIDTH // 4
@@ -113,7 +119,26 @@ def initial_ball_positions():
 
 def draw_balls():
     for ball in pool_balls:
-        draw_ball(ball)
+        if not ball["potted"]:
+            draw_ball(ball)
+        else:
+            # Draw potted balls in a separate area (e.g., top-left corner)
+            potted_x = 50 + (ball["number"] - 1) * (BALL_RADIUS * 2 + 5)
+            potted_y = 50
+            pygame.draw.circle(screen, ball["color"], (potted_x, potted_y), BALL_RADIUS)
+
+def draw_loss_message():
+    font = pygame.font.Font(None, 74)
+    text = font.render("You Lose!", True, (255, 0, 0))
+    text_rect = text.get_rect(center=(screen.get_width() // 2, screen.get_height() // 2))
+    screen.blit(text, text_rect)
+    global LOST
+    LOST = True  # Set the LOST flag to True when the message is displayed
+
+def draw_score():
+    font = pygame.font.Font(None, 36)
+    score_text = font.render(f"Score: {SCORE}", True, (255, 255, 255))
+    screen.blit(score_text, (10, 10))
 
 def draw_hit_power_bar(power):
     bar_width = 400
@@ -145,6 +170,71 @@ def get_x_y():
         return pygame.mouse.get_pos()
     elif method == "AI":
         return ai_target
+
+def eight_ball_potted():
+    # Check if the 8-ball is potted
+    eight_ball = next(ball for ball in pool_balls if ball["type"] == "8-Ball")
+    return eight_ball["potted"]
+
+def all_balls_potted():
+    # Check if all balls except the cue ball are potted
+    return all(ball["potted"] for ball in pool_balls[1:])
+
+def get_pocket_positions():
+    # The ONE list of pocket centers, used for drawing, bouncing and potting.
+    table_x = screen.get_width() // 2 - TABLE_WIDTH // 2
+    table_y = screen.get_height() // 2 - TABLE_HEIGHT // 2
+    return [
+        (table_x - POCKET_OFFSET, table_y - POCKET_OFFSET),  # Top-left
+        (table_x + TABLE_WIDTH // 2, table_y - POCKET_OFFSET),  # Top-center
+        (table_x + TABLE_WIDTH + POCKET_OFFSET, table_y - POCKET_OFFSET),  # Top-right
+        (table_x - POCKET_OFFSET, table_y + TABLE_HEIGHT + POCKET_OFFSET),  # Bottom-left
+        (table_x + TABLE_WIDTH // 2, table_y + TABLE_HEIGHT + POCKET_OFFSET),  # Bottom-center
+        (table_x + TABLE_WIDTH + POCKET_OFFSET, table_y + TABLE_HEIGHT + POCKET_OFFSET),  # Bottom-right
+    ]
+
+def is_in_pocket_mouth(x, y):
+    # True if (x, y) is close enough to a pocket that there's no cushion to bounce off.
+    for i, (px, py) in enumerate(get_pocket_positions()):
+        mouth = SIDE_POCKET_MOUTH if i in SIDE_POCKETS else CORNER_POCKET_MOUTH
+        if (x - px) ** 2 + (y - py) ** 2 < mouth ** 2:
+            return True
+    return False
+
+def is_ball_in_pocket(x, y):
+    # A ball drops if its center is over the hole, OR if it got past the cushion line
+    # (only possible through a pocket mouth, since everywhere else it bounces).
+    table_x = screen.get_width() // 2 - TABLE_WIDTH // 2
+    table_y = screen.get_height() // 2 - TABLE_HEIGHT // 2
+    off_felt = x < table_x or x > table_x + TABLE_WIDTH or y < table_y or y > table_y + TABLE_HEIGHT
+    if off_felt:
+        return True
+    for px, py in get_pocket_positions():
+        if (x - px) ** 2 + (y - py) ** 2 < POCKET_RADIUS ** 2:
+            return True
+    return False
+
+def check_potted_balls():
+    # Check if any balls are potted (in pockets)
+    global SCORE
+    for ball in pool_balls:
+        if not ball["potted"]:
+            x, y = ball["position"]
+            if is_ball_in_pocket(x, y):
+                ball["potted"] = True
+                ball["velocity"] = (0, 0)
+                # Score handling: if the 8-ball is potted, check if the player has lost or won
+                if ball["type"] == "8-Ball":
+                    if not all_balls_potted():
+                        SCORE = EIGHT_BALL_PENALTY
+                    else:
+                        SCORE += 100  # Reward for potting the 8-ball after all others
+                elif ball["type"] == "Cue":
+                    SCORE += CUE_BALL_PENALTY
+                    ball["position"] = (screen.get_width() // 2 - TABLE_WIDTH // 4, screen.get_height() // 2)  # Reset cue ball position
+                    ball["potted"] = False  # Reset cue ball to not potted
+                else:
+                    SCORE += BALL_POT_REWARD
 
 def decrease_balls_velocity(friction=FRICTION):
     for ball in pool_balls:
@@ -215,6 +305,12 @@ def check_wall_collision(ball, step=1):
     top = table_y + BALL_RADIUS
     bottom = table_y + TABLE_HEIGHT - BALL_RADIUS
 
+    # In a pocket mouth there is no cushion: just move, no bounce.
+    # (check_potted_balls will catch the ball once it reaches the hole.)
+    if is_in_pocket_mouth(future_X, future_y):
+        ball["position"] = (future_X, future_y)
+        return False
+
     # with future pos, check if we collide, if we do, reflect the velocity and move back into the table CORRECTLY!
     # rail collision:
     if future_X < left or future_X > right:
@@ -240,15 +336,22 @@ def check_wall_collision(ball, step=1):
     return collided
 
 def physics_substep(step):
+    # Potted balls are out of the game: no moving, no bouncing, no hitting other balls
+    on_table = [ball for ball in pool_balls if not ball["potted"]]
+
     # 1 + 2: move every ball a little, bouncing off the rails
-    for ball in pool_balls:
+    for ball in on_table:
         check_wall_collision(ball, step)
 
-    # 3: resolve every overlapping pair (each pair checked once)
-    for i in range(len(pool_balls)):
-        for j in range(i + 1, len(pool_balls)):
-            if check_ball_collision(pool_balls[i], pool_balls[j]):
-                resolve_ball_collision(pool_balls[i], pool_balls[j])
+    # 3: did anything drop into a pocket?
+    check_potted_balls()
+    on_table = [ball for ball in on_table if not ball["potted"]]
+
+    # 4: resolve every overlapping pair (each pair checked once)
+    for i in range(len(on_table)):
+        for j in range(i + 1, len(on_table)):
+            if check_ball_collision(on_table[i], on_table[j]):
+                resolve_ball_collision(on_table[i], on_table[j])
 
 def update_balls():
     # How far does the fastest ball move this frame?
@@ -320,19 +423,21 @@ while running:
             running = False  
 
     CURR_POWER = get_power()
+    LOST = eight_ball_potted() and not all_balls_potted()
     
     # Draw everything
     draw_room_and_table()
     draw_balls()
     draw_hit_power_bar(CURR_POWER)
     draw_que_ball_aim_line()
+    draw_loss_message() if LOST else None
+    draw_score()
 
     # Check for shooting
-    if not are_balls_moving():
+    if not are_balls_moving() and not LOST:
         # Can take input
         if pygame.mouse.get_pressed()[0]:
             aim_cue_ball(CURR_POWER)
-
     update_balls()
 
     # Update the display and control the frame rate

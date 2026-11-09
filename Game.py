@@ -1,7 +1,7 @@
 import math
 import pygame
 import copy
-
+import GeneticAi
 
 pygame.init()
 SCREEN_WIDTH = 1000
@@ -482,7 +482,6 @@ def play_all_moves(moves):
     game_data["MOVES"] = moves
     return game_data
 
-
 def play_game(game_data, game_speed):
     GAME_SPEED = game_speed
     running = True
@@ -527,17 +526,20 @@ def play_game(game_data, game_speed):
     pygame.quit()
 
 def main():
-    # Example moves for the AI to play
-    example_moves = [
-        (400, 300),  # Move 1: Aim at (400, 300)
-        (600, 200),  # Move 2: Aim at (600, 200)
-        (500, 400),  # Move 3: Aim at (500, 400)
-        # Add more moves as needed
-    ]
     game_speed = 5
+    AiNum = 5
+    AiPlayers = [GeneticAi.Ai() for _ in range(AiNum)]  # Create AI players
 
-    # Play the game with the example moves
-    game_data = play_all_moves(example_moves)
-    play_game(game_data, game_speed)  # You can adjust the speed as needed
+    for i in range(AiNum):
+        AiPlayers[i].generate_moves()  # Generate moves for each AI player
+        curr_game = new_game(method="AI")
+        curr_game["MOVES"] = AiPlayers[i].moves
+        AiPlayers[i].set_game(curr_game)  # Set the game for each AI player
 
-main()
+    for Ai in AiPlayers:
+        game_data = play_all_moves(Ai.moves)
+        play_game(game_data, game_speed)  # You can adjust the speed as needed
+
+
+if __name__ == "__main__":
+    main()

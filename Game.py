@@ -37,6 +37,7 @@ SCORE = 0
 CUE_BALL_PENALTY = -5  # Penalty for potting the cue ball
 EIGHT_BALL_PENALTY = -1000  # Penalty for potting the 8-ball early
 BALL_POT_REWARD = 3  # Reward for potting a regular ball
+SHOT_PENALTY = 0  # Penalty for taking a shot (to encourage efficiency)
 
 pool_balls = [
     {"number": None, "color": "White", "type": "Cue", "position": (0, 0), "velocity": (0, 0), "potted": False},  # Cue ball
@@ -437,6 +438,7 @@ while running:
     if not are_balls_moving() and not LOST:
         # Can take input
         if pygame.mouse.get_pressed()[0]:
+            SCORE += SHOT_PENALTY  # Apply shot penalty for taking a shot
             aim_cue_ball(CURR_POWER)
     update_balls()
 

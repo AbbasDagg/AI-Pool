@@ -2,7 +2,9 @@ import math
 import pygame
 
 pygame.init()
-screen = pygame.display.set_mode((1000, 600))
+SCREEN_WIDTH = 1000
+SCREEN_HEIGHT = 600
+screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 pygame.display.set_caption("AI Pool")
 clock = pygame.time.Clock()
 running = True
@@ -13,6 +15,9 @@ RAIL_BROWN = (139, 69, 19)
 ROOM_GREY = (109, 109, 109)
 TABLE_WIDTH = 800
 TABLE_HEIGHT = 400
+# Top-left corner of the felt. Physics uses these, so it never needs the screen.
+TABLE_X = SCREEN_WIDTH // 2 - TABLE_WIDTH // 2
+TABLE_Y = SCREEN_HEIGHT // 2 - TABLE_HEIGHT // 2
 RAIL_WIDTH = 20
 
 # ball stuff
@@ -32,35 +37,12 @@ SIDE_POCKET_MOUTH = 30
 SIDE_POCKETS = (1, 4)  # indexes of the side pockets in get_pocket_positions()
 
 # Params
-LOST = False  # True if the player has lost (potted the 8-ball early)
-SCORE = 0
 CUE_BALL_PENALTY = -5  # Penalty for potting the cue ball
 EIGHT_BALL_PENALTY = -1000  # Penalty for potting the 8-ball early
 BALL_POT_REWARD = 3  # Reward for potting a regular ball
 SHOT_PENALTY = 0  # Penalty for taking a shot (to encourage efficiency)
-SHOT_COUNT = 0  # Count of shots taken
 GAME_SPEED = 1  # Speed multiplier for the game (1.0 = normal speed)
 
-pool_balls = [
-    {"number": None, "color": "White", "type": "Cue", "position": (0, 0), "velocity": (0, 0), "potted": False},  # Cue ball
-    # Rack order: apex, then rows of 2, 3, 4, and 5 balls.
-    # The 8-ball is centered and the two back corners are different types.
-    {"number": 11, "color": "Red", "type": "Stripe", "position": (0, 0), "velocity": (0, 0), "potted": False},
-    {"number": 2, "color": "Blue", "type": "Solid", "position": (0, 0), "velocity": (0, 0), "potted": False},
-    {"number": 13, "color": "Orange", "type": "Stripe", "position": (0, 0), "velocity": (0, 0), "potted": False},
-    {"number": 3, "color": "Red", "type": "Solid", "position": (0, 0), "velocity": (0, 0), "potted": False},
-    {"number": 8, "color": "Black", "type": "8-Ball", "position": (0, 0), "velocity": (0, 0), "potted": False},
-    {"number": 15, "color": "Maroon", "type": "Stripe", "position": (0, 0), "velocity": (0, 0), "potted": False},
-    {"number": 6, "color": "Green", "type": "Solid", "position": (0, 0), "velocity": (0, 0), "potted": False},
-    {"number": 7, "color": "Maroon", "type": "Solid", "position": (0, 0), "velocity": (0, 0), "potted": False},
-    {"number": 9, "color": "Yellow", "type": "Stripe", "position": (0, 0), "velocity": (0, 0), "potted": False},
-    {"number": 1, "color": "Yellow", "type": "Solid", "position": (0, 0), "velocity": (0, 0), "potted": False},
-    {"number": 10, "color": "Blue", "type": "Stripe", "position": (0, 0), "velocity": (0, 0), "potted": False},
-    {"number": 12, "color": "Purple", "type": "Stripe", "position": (0, 0), "velocity": (0, 0), "potted": False},
-    {"number": 4, "color": "Purple", "type": "Solid", "position": (0, 0), "velocity": (0, 0), "potted": False},
-    {"number": 14, "color": "Green", "type": "Stripe", "position": (0, 0), "velocity": (0, 0), "potted": False},
-    {"number": 5, "color": "Orange", "type": "Solid", "position": (0, 0), "velocity": (0, 0), "potted": False},
-]
 
 # Define drawing function for the room and table
 def draw_room_and_table():
@@ -68,8 +50,8 @@ def draw_room_and_table():
     screen.fill(ROOM_GREY)
 
     # Prepare table cords
-    table_x = screen.get_width() // 2 - TABLE_WIDTH // 2
-    table_y = screen.get_height() // 2 - TABLE_HEIGHT // 2
+    table_x = TABLE_X
+    table_y = TABLE_Y
 
     # Draw the rails
     pygame.draw.rect(screen, RAIL_BROWN, (table_x - RAIL_WIDTH, table_y - RAIL_WIDTH, TABLE_WIDTH + 2 * RAIL_WIDTH, TABLE_HEIGHT + 2 * RAIL_WIDTH), border_radius=5)
@@ -98,10 +80,10 @@ def draw_ball(ball):
     elif ball["type"] == "Cue":
         pygame.draw.circle(screen, (255, 255, 255), (x, y), BALL_RADIUS)
 
-def initial_ball_positions():
+def initial_ball_positions(pool_balls):
     # Set the initial positions of the cue ball and object balls.
-    table_x = screen.get_width() // 2 - TABLE_WIDTH // 2
-    table_y = screen.get_height() // 2 - TABLE_HEIGHT // 2
+    table_x = TABLE_X
+    table_y = TABLE_Y
 
     cue_ball_x = table_x + TABLE_WIDTH // 4 - BALL_RADIUS
     cue_ball_y = table_y + TABLE_HEIGHT // 2
@@ -120,8 +102,8 @@ def initial_ball_positions():
             pool_balls[ball_index]["position"] = (ball_x, ball_y + col * row_spacing)
             ball_index += 1
 
-def draw_balls():
-    for ball in pool_balls:
+def draw_balls(game):
+    for ball in game["pool_balls"]:
         if not ball["potted"]:
             draw_ball(ball)
         else:
@@ -135,17 +117,15 @@ def draw_loss_message():
     text = font.render("You Lose!", True, (255, 0, 0))
     text_rect = text.get_rect(center=(screen.get_width() // 2, screen.get_height() // 2))
     screen.blit(text, text_rect)
-    global LOST
-    LOST = True  # Set the LOST flag to True when the message is displayed
 
-def draw_score():
+def draw_score(game):
     font = pygame.font.Font(None, 36)
-    score_text = font.render(f"Score: {SCORE}", True, (255, 255, 255))
+    score_text = font.render(f"Score: {game['SCORE']}", True, (255, 255, 255))
     screen.blit(score_text, (10, 10))
 
-def draw_shot_count():
+def draw_shot_count(game):
     font = pygame.font.Font(None, 36)
-    shot_text = font.render(f"Shots Taken: {SHOT_COUNT}", True, (255, 255, 255))
+    shot_text = font.render(f"Shots Taken: {game['SHOT_COUNT']}", True, (255, 255, 255))
     screen.blit(shot_text, (10, 50))
 
 def draw_hit_power_bar(power):
@@ -161,8 +141,8 @@ def draw_hit_power_bar(power):
     filled_width = int(bar_width * power)
     pygame.draw.rect(screen, (0, 255, 0), (bar_x, bar_y, filled_width, bar_height))
 
-def draw_que_ball_aim_line():
-    cue_ball = pool_balls[0]
+def draw_que_ball_aim_line(game):
+    cue_ball = game["pool_balls"][0]
     cue_ball_x, cue_ball_y = cue_ball["position"]
     end_x, end_y = get_x_y()
 
@@ -179,19 +159,19 @@ def get_x_y():
     elif method == "AI":
         return ai_target
 
-def eight_ball_potted():
+def eight_ball_potted(game):
     # Check if the 8-ball is potted
-    eight_ball = next(ball for ball in pool_balls if ball["type"] == "8-Ball")
+    eight_ball = next(ball for ball in game["pool_balls"] if ball["type"] == "8-Ball")
     return eight_ball["potted"]
 
-def all_balls_potted():
+def all_balls_potted(game):
     # Check if all balls except the cue ball are potted
-    return all(ball["potted"] for ball in pool_balls[1:])
+    return all(ball["potted"] for ball in game["pool_balls"][1:])
 
 def get_pocket_positions():
     # The ONE list of pocket centers, used for drawing, bouncing and potting.
-    table_x = screen.get_width() // 2 - TABLE_WIDTH // 2
-    table_y = screen.get_height() // 2 - TABLE_HEIGHT // 2
+    table_x = TABLE_X
+    table_y = TABLE_Y
     return [
         (table_x - POCKET_OFFSET, table_y - POCKET_OFFSET),  # Top-left
         (table_x + TABLE_WIDTH // 2, table_y - POCKET_OFFSET),  # Top-center
@@ -212,8 +192,8 @@ def is_in_pocket_mouth(x, y):
 def is_ball_in_pocket(x, y):
     # A ball drops if its center is over the hole, OR if it got past the cushion line
     # (only possible through a pocket mouth, since everywhere else it bounces).
-    table_x = screen.get_width() // 2 - TABLE_WIDTH // 2
-    table_y = screen.get_height() // 2 - TABLE_HEIGHT // 2
+    table_x = TABLE_X
+    table_y = TABLE_Y
     off_felt = x < table_x or x > table_x + TABLE_WIDTH or y < table_y or y > table_y + TABLE_HEIGHT
     if off_felt:
         return True
@@ -222,10 +202,9 @@ def is_ball_in_pocket(x, y):
             return True
     return False
 
-def check_potted_balls():
+def check_potted_balls(game):
     # Check if any balls are potted (in pockets)
-    global SCORE
-    for ball in pool_balls:
+    for ball in game["pool_balls"]:
         if not ball["potted"]:
             x, y = ball["position"]
             if is_ball_in_pocket(x, y):
@@ -233,19 +212,20 @@ def check_potted_balls():
                 ball["velocity"] = (0, 0)
                 # Score handling: if the 8-ball is potted, check if the player has lost or won
                 if ball["type"] == "8-Ball":
-                    if not all_balls_potted():
-                        SCORE = EIGHT_BALL_PENALTY
+                    if not all_balls_potted(game):
+                        game["SCORE"] = EIGHT_BALL_PENALTY
+                        game["LOST"] = True
                     else:
-                        SCORE += 100  # Reward for potting the 8-ball after all others
+                        game["SCORE"] += 100  # Reward for potting the 8-ball after all others
                 elif ball["type"] == "Cue":
-                    SCORE += CUE_BALL_PENALTY
-                    ball["position"] = (screen.get_width() // 2 - TABLE_WIDTH // 4, screen.get_height() // 2)  # Reset cue ball position
+                    game["SCORE"] += CUE_BALL_PENALTY
+                    ball["position"] = (TABLE_X + TABLE_WIDTH // 4, TABLE_Y + TABLE_HEIGHT // 2)  # Reset cue ball position
                     ball["potted"] = False  # Reset cue ball to not potted
                 else:
-                    SCORE += BALL_POT_REWARD
+                    game["SCORE"] += BALL_POT_REWARD
 
-def decrease_balls_velocity(friction=FRICTION):
-    for ball in pool_balls:
+def decrease_balls_velocity(game, friction=FRICTION):
+    for ball in game["pool_balls"]:
         vx, vy = ball["velocity"]
         ball["velocity"] = (vx * friction, vy * friction)
 
@@ -302,8 +282,8 @@ def resolve_ball_collision(ball1, ball2):
 def check_wall_collision(ball, step=1):
     x, y = ball["position"]
     vx, vy = ball["velocity"]
-    table_x = screen.get_width() // 2 - TABLE_WIDTH // 2
-    table_y = screen.get_height() // 2 - TABLE_HEIGHT // 2
+    table_x = TABLE_X
+    table_y = TABLE_Y
     future_X, future_y = future_ball_pos(ball, step)
 
     collided = False
@@ -343,16 +323,16 @@ def check_wall_collision(ball, step=1):
 
     return collided
 
-def physics_substep(step):
+def physics_substep(game, step):
     # Potted balls are out of the game: no moving, no bouncing, no hitting other balls
-    on_table = [ball for ball in pool_balls if not ball["potted"]]
+    on_table = [ball for ball in game["pool_balls"] if not ball["potted"]]
 
     # 1 + 2: move every ball a little, bouncing off the rails
     for ball in on_table:
         check_wall_collision(ball, step)
 
     # 3: did anything drop into a pocket?
-    check_potted_balls()
+    check_potted_balls(game)
     on_table = [ball for ball in on_table if not ball["potted"]]
 
     # 4: resolve every overlapping pair (each pair checked once)
@@ -361,10 +341,10 @@ def physics_substep(step):
             if check_ball_collision(on_table[i], on_table[j]):
                 resolve_ball_collision(on_table[i], on_table[j])
 
-def update_balls():
+def update_balls(game):
     # How far does the fastest ball move this frame?
     fastest = 0
-    for ball in pool_balls:
+    for ball in game["pool_balls"]:
         vx, vy = ball["velocity"]
         fastest = max(fastest, (vx ** 2 + vy ** 2) ** 0.5)
 
@@ -372,28 +352,28 @@ def update_balls():
     # e.g. fastest = 40 px/frame, MAX_STEP_DISTANCE = 5 -> 8 steps of 1/8 each
     substeps = max(1, math.ceil(fastest / MAX_STEP_DISTANCE))
     for _ in range(substeps):
-        physics_substep(1 / substeps)
+        physics_substep(game, 1 / substeps)
 
     # Friction once per frame (not per substep)
-    decrease_balls_velocity()
+    decrease_balls_velocity(game)
 
     # Snap very slow balls to a full stop, otherwise they creep forever
-    for ball in pool_balls:
+    for ball in game["pool_balls"]:
         vx, vy = ball["velocity"]
         if (vx ** 2 + vy ** 2) ** 0.5 < STOP_SPEED:
             ball["velocity"] = (0, 0)
 
-def are_balls_moving():
+def are_balls_moving(game):
     return any(vx != 0 or vy != 0
-               for vx, vy in (ball["velocity"] for ball in pool_balls))
+               for vx, vy in (ball["velocity"] for ball in game["pool_balls"]))
 
 def power_to_velocity(power):
     # Convert a power value (0 to 1) to a velocity magnitude for the cue ball.
     max_velocity = 50  # Adjust this value for desired maximum speed
     return power * max_velocity
 
-def aim_cue_ball(power):
-    cue_ball = pool_balls[0]
+def aim_cue_ball(game, power):
+    cue_ball = game["pool_balls"][0]
     cue_ball_x, cue_ball_y = cue_ball["position"]
     x, y = get_x_y()
 
@@ -413,16 +393,52 @@ def aim_cue_ball(power):
     velocity_magnitude = power_to_velocity(power)
     cue_ball["velocity"] = (direction_x * velocity_magnitude, direction_y * velocity_magnitude)
 
-def get_power():
+def get_power(game):
     # Get the current power level based on the aim position (mouse or AI)
-    cue_ball = pool_balls[0]
+    cue_ball = game["pool_balls"][0]
     cue_x, cue_y = cue_ball["position"]
     x, y = get_x_y()
     # Calculate power based on the distance of the aim position from the center of the cue ball
     distance = (x - cue_x) ** 2 + (y - cue_y) ** 2
     return min(max(distance / 100000, 0), 1)  # Normalize to a value between 0 and 1
 
-initial_ball_positions()
+def new_game():
+    pool_balls = [
+    {"number": None, "color": "White", "type": "Cue", "position": (0, 0), "velocity": (0, 0), "potted": False},  # Cue ball
+    # Rack order: apex, then rows of 2, 3, 4, and 5 balls.
+    # The 8-ball is centered and the two back corners are different types.
+    {"number": 11, "color": "Red", "type": "Stripe", "position": (0, 0), "velocity": (0, 0), "potted": False},
+    {"number": 2, "color": "Blue", "type": "Solid", "position": (0, 0), "velocity": (0, 0), "potted": False},
+    {"number": 13, "color": "Orange", "type": "Stripe", "position": (0, 0), "velocity": (0, 0), "potted": False},
+    {"number": 3, "color": "Red", "type": "Solid", "position": (0, 0), "velocity": (0, 0), "potted": False},
+    {"number": 8, "color": "Black", "type": "8-Ball", "position": (0, 0), "velocity": (0, 0), "potted": False},
+    {"number": 15, "color": "Maroon", "type": "Stripe", "position": (0, 0), "velocity": (0, 0), "potted": False},
+    {"number": 6, "color": "Green", "type": "Solid", "position": (0, 0), "velocity": (0, 0), "potted": False},
+    {"number": 7, "color": "Maroon", "type": "Solid", "position": (0, 0), "velocity": (0, 0), "potted": False},
+    {"number": 9, "color": "Yellow", "type": "Stripe", "position": (0, 0), "velocity": (0, 0), "potted": False},
+    {"number": 1, "color": "Yellow", "type": "Solid", "position": (0, 0), "velocity": (0, 0), "potted": False},
+    {"number": 10, "color": "Blue", "type": "Stripe", "position": (0, 0), "velocity": (0, 0), "potted": False},
+    {"number": 12, "color": "Purple", "type": "Stripe", "position": (0, 0), "velocity": (0, 0), "potted": False},
+    {"number": 4, "color": "Purple", "type": "Solid", "position": (0, 0), "velocity": (0, 0), "potted": False},
+    {"number": 14, "color": "Green", "type": "Stripe", "position": (0, 0), "velocity": (0, 0), "potted": False},
+    {"number": 5, "color": "Orange", "type": "Solid", "position": (0, 0), "velocity": (0, 0), "potted": False},
+]
+
+    initial_ball_positions(pool_balls)
+    # Params
+    LOST = False  # True if the player has lost (potted the 8-ball early)
+    SCORE = 0
+    SHOT_COUNT = 0  # Count of shots taken
+    MOVES = []  # List to store moves for AI mode
+
+    return {
+        "pool_balls": pool_balls,
+        "LOST": LOST,
+        "SCORE": SCORE,
+        "SHOT_COUNT": SHOT_COUNT,
+        "MOVES": MOVES,}
+
+game_data = new_game()
 method = "normal"  # Change to "AI" for AI mode
 GAME_SPEED = 1
 
@@ -431,28 +447,26 @@ while running:
         if event.type == pygame.QUIT:
             running = False  
 
-    CURR_POWER = get_power()
-    LOST = eight_ball_potted() and not all_balls_potted()
-    
+    CURR_POWER = get_power(game_data)
     for _ in range(int(GAME_SPEED)):
-        update_balls()
-        
+        update_balls(game_data)
+
     # Draw everything
     draw_room_and_table()
-    draw_balls()
+    draw_balls(game_data)
     draw_hit_power_bar(CURR_POWER)
-    draw_que_ball_aim_line()
-    draw_loss_message() if LOST else None
-    draw_score()
-    draw_shot_count()
+    draw_que_ball_aim_line(game_data)
+    draw_loss_message() if game_data["LOST"] else None
+    draw_score(game_data)
+    draw_shot_count(game_data)
 
     # Check for shooting
-    if not are_balls_moving() and not LOST:
+    if not are_balls_moving(game_data) and not game_data["LOST"]:
         # Can take input
         if pygame.mouse.get_pressed()[0]:
-            SCORE += SHOT_PENALTY
-            SHOT_COUNT += 1
-            aim_cue_ball(CURR_POWER)
+            game_data["SCORE"] += SHOT_PENALTY
+            game_data["SHOT_COUNT"] += 1
+            aim_cue_ball(game_data, CURR_POWER)
 
     # Update the display and control the frame rate
     pygame.display.flip()

@@ -9,7 +9,6 @@ SCREEN_HEIGHT = 600
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 pygame.display.set_caption("AI Pool")
 clock = pygame.time.Clock()
-running = True
 
 # background colors
 FELT_GREEN = (0, 100, 0)
@@ -471,49 +470,73 @@ def simulate_shot(game):
     while are_balls_moving(game) and limit > 0:
         update_balls(game)
         limit -= 1
-        
+
     game["SCORE"] += SHOT_PENALTY
     game["SHOT_COUNT"] += 1
     game["i"] += 1
 
-game_data = new_game()
-GAME_SPEED = 1
+def play_all_moves(moves):
+    # Create a new game in AI mode
+    game_data = new_game(method="AI")
+    # Define a sequence of moves for the AI (example moves)
+    game_data["MOVES"] = moves
+    return game_data
 
-while running:
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            running = False  
 
-    CURR_POWER = get_power(game_data)
-    for _ in range(int(GAME_SPEED)):
-        update_balls(game_data)
+def play_game(game_data, game_speed):
+    GAME_SPEED = game_speed
+    running = True
+    while running:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False  
 
-    # Draw everything
-    draw_room_and_table()
-    draw_balls(game_data)
-    draw_hit_power_bar(CURR_POWER)
-    draw_que_ball_aim_line(game_data)
-    draw_loss_message() if game_data["LOST"] else None
-    draw_score(game_data)
-    draw_shot_count(game_data)
+        CURR_POWER = get_power(game_data)
+        for _ in range(int(GAME_SPEED)):
+            update_balls(game_data)
 
-    # Check for shooting
-    if not are_balls_moving(game_data) and not game_data["LOST"]:
-        # Can take input
-        if game_data["method"] == "normal":
-            if pygame.mouse.get_pressed()[0]:
-                game_data["SCORE"] += SHOT_PENALTY
-                game_data["SHOT_COUNT"] += 1
-                aim_cue_ball(game_data, CURR_POWER)
-        elif game_data["method"] == "AI":
-            if game_data["i"] < len(game_data["MOVES"]):
-                aim_cue_ball(game_data, CURR_POWER)
-                game_data["i"] += 1 # we already took it before, so move to the next one
-                game_data["SCORE"] += SHOT_PENALTY
-                game_data["SHOT_COUNT"] += 1
+        # Draw everything
+        draw_room_and_table()
+        draw_balls(game_data)
+        draw_hit_power_bar(CURR_POWER)
+        draw_que_ball_aim_line(game_data)
+        draw_loss_message() if game_data["LOST"] else None
+        draw_score(game_data)
+        draw_shot_count(game_data)
 
-    # Update the display and control the frame rate
-    pygame.display.flip()
-    clock.tick(60)
+        # Check for shooting
+        if not are_balls_moving(game_data) and not game_data["LOST"]:
+            # Can take input
+            if game_data["method"] == "normal":
+                if pygame.mouse.get_pressed()[0]:
+                    game_data["SCORE"] += SHOT_PENALTY
+                    game_data["SHOT_COUNT"] += 1
+                    aim_cue_ball(game_data, CURR_POWER)
+            elif game_data["method"] == "AI":
+                if game_data["i"] < len(game_data["MOVES"]):
+                    aim_cue_ball(game_data, CURR_POWER)
+                    game_data["i"] += 1
+                    game_data["SCORE"] += SHOT_PENALTY
+                    game_data["SHOT_COUNT"] += 1
 
-pygame.quit()
+        # Update the display and control the frame rate
+        pygame.display.flip()
+        clock.tick(60)
+
+    pygame.quit()
+
+def main():
+    # Example moves for the AI to play
+    example_moves = [
+        (400, 300),  # Move 1: Aim at (400, 300)
+        (600, 200),  # Move 2: Aim at (600, 200)
+        (500, 400),  # Move 3: Aim at (500, 400)
+        # Add more moves as needed
+    ]
+    game_speed = 1
+
+    # Play the game with the example moves
+    game_data = play_all_moves(example_moves)
+    play_game(game_data, game_speed)  # You can adjust the speed as needed
+
+main()

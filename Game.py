@@ -19,6 +19,8 @@ RAIL_WIDTH = 20
 FRICTION = 0.98  
 BALL_RADIUS = 10
 CURR_POWER = 0.5  # Default power for aiming
+MAX_STEP_DISTANCE = BALL_RADIUS / 2  # no ball may move further than this in one substep
+STOP_SPEED = 0.05  # below this speed a ball counts as stopped
 pool_balls = [
     {"number": None, "color": "White", "type": "Cue", "position": (0, 0), "velocity": (0, 0)},  # Cue ball
     # Rack order: apex, then rows of 2, 3, 4, and 5 balls.
@@ -126,17 +128,23 @@ def draw_hit_power_bar(power):
     filled_width = int(bar_width * power)
     pygame.draw.rect(screen, (0, 255, 0), (bar_x, bar_y, filled_width, bar_height))
 
-def draw_que_ball_aim_line(mode="normal", x = 0, y = 0):
+def draw_que_ball_aim_line():
     cue_ball = pool_balls[0]
     cue_ball_x, cue_ball_y = cue_ball["position"]
-    
-    if mode == "normal":
-        end_x, end_y = pygame.mouse.get_pos()
-    elif mode == "AI": # let AI pick the target position
-        end_x, end_y = x, y
+    end_x, end_y = get_x_y()
 
-    # Draw a line from the cue ball to the mouse position
+    # Draw a line from the cue ball to the aim position (mouse or AI)
     pygame.draw.line(screen, (255, 255, 255), (cue_ball_x, cue_ball_y), (end_x, end_y), 2)
+
+# Where the AI wants to aim. The AI will set this later; (0, 0) is just a placeholder.
+ai_target = (0, 0)
+
+def get_x_y():
+    # The ONLY place that decides who is aiming: the mouse or the AI.
+    if method == "normal":
+        return pygame.mouse.get_pos()
+    elif method == "AI":
+        return ai_target
 
 def decrease_balls_velocity(friction=FRICTION):
     for ball in pool_balls:
@@ -231,9 +239,6 @@ def check_wall_collision(ball, step=1):
 
     return collided
 
-MAX_STEP_DISTANCE = BALL_RADIUS / 2  # no ball may move further than this in one substep
-STOP_SPEED = 0.05  # below this speed a ball counts as stopped
-
 def physics_substep(step):
     # 1 + 2: move every ball a little, bouncing off the rails
     for ball in pool_balls:
@@ -279,11 +284,11 @@ def power_to_velocity(power):
 def aim_cue_ball(power):
     cue_ball = pool_balls[0]
     cue_ball_x, cue_ball_y = cue_ball["position"]
-    mouse_x, mouse_y = pygame.mouse.get_pos()
+    x, y = get_x_y()
 
-    # Calculate the direction from the cue ball to the mouse position
-    dx = mouse_x - cue_ball_x
-    dy = mouse_y - cue_ball_y
+    # Calculate the direction from the cue ball to the given position
+    dx = x - cue_ball_x
+    dy = y - cue_ball_y
     distance = (dx ** 2 + dy ** 2) ** 0.5
 
     if distance == 0:
@@ -298,21 +303,22 @@ def aim_cue_ball(power):
     cue_ball["velocity"] = (direction_x * velocity_magnitude, direction_y * velocity_magnitude)
 
 def get_power():
-    # Get the current power level based on mouse position or other input
-    mouse_x, mouse_y = pygame.mouse.get_pos()
+    # Get the current power level based on the aim position (mouse or AI)
     cue_ball = pool_balls[0]
     cue_x, cue_y = cue_ball["position"]
-
-    # Calculate power based on the distance of the mouse from the center of the power bar
-    distance = (mouse_y - cue_y) ** 2 + (mouse_x - cue_x) ** 2
+    x, y = get_x_y()
+    # Calculate power based on the distance of the aim position from the center of the cue ball
+    distance = (x - cue_x) ** 2 + (y - cue_y) ** 2
     return min(max(distance / 100000, 0), 1)  # Normalize to a value between 0 and 1
 
 initial_ball_positions()
+method = "normal"  # Change to "AI" for AI mode
 
 while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False  
+
     CURR_POWER = get_power()
     
     # Draw everything
@@ -326,8 +332,8 @@ while running:
         # Can take input
         if pygame.mouse.get_pressed()[0]:
             aim_cue_ball(CURR_POWER)
-    update_balls()
 
+    update_balls()
 
     # Update the display and control the frame rate
     pygame.display.flip()

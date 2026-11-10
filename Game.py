@@ -39,6 +39,7 @@ SIDE_POCKETS = (1, 4)  # indexes of the side pockets in get_pocket_positions()
 
 # Params
 CUE_BALL_PENALTY = -5  # Penalty for potting the cue ball
+EIGHT_BALL_REWARD = 100
 EIGHT_BALL_PENALTY = -1000  # Penalty for potting the 8-ball early
 BALL_POT_REWARD = 3  # Reward for potting a regular ball
 SHOT_PENALTY = 0  # Penalty for taking a shot (to encourage efficiency)
@@ -224,7 +225,7 @@ def check_potted_balls(game):
                         game["SCORE"] = EIGHT_BALL_PENALTY
                         game["LOST"] = True
                     else:
-                        game["SCORE"] += 100  # Reward for potting the 8-ball after all others
+                        game["SCORE"] += EIGHT_BALL_REWARD  # Reward for potting the 8-ball after all others
                 elif ball["type"] == "Cue":
                     game["SCORE"] += CUE_BALL_PENALTY
                     ball["position"] = (TABLE_X + TABLE_WIDTH // 4, TABLE_Y + TABLE_HEIGHT // 2)  # Reset cue ball position
@@ -475,12 +476,11 @@ def simulate_shot(game):
     game["SHOT_COUNT"] += 1
     game["i"] += 1
 
-def play_all_moves(moves):
-    # Create a new game in AI mode
-    game_data = new_game(method="AI")
-    # Define a sequence of moves for the AI (example moves)
-    game_data["MOVES"] = moves
-    return game_data
+def simulate_game(game):
+    for _ in game["MOVES"]:
+        simulate_shot(game)
+        if game["LOST"]:
+            break  # Stop simulating if the player has lost
 
 def play_game(game_data, game_speed):
     GAME_SPEED = game_speed
@@ -523,11 +523,25 @@ def play_game(game_data, game_speed):
         pygame.display.flip()
         clock.tick(60)
 
-    pygame.quit()
+def evaluate_game(game):
+    return game["SCORE"]  # Simple evaluation based on score; can be enhanced with more complex metrics
+
+def best_ai_player(ai_players):
+    best_player = None
+    best_fitness = float('-inf')
+
+    for ai in ai_players:
+        fitness = evaluate_game(ai.game)
+        ai.fitness = fitness  # Store the fitness in the AI player
+        if fitness > best_fitness:
+            best_fitness = fitness
+            best_player = ai
+
+    return best_player
 
 def main():
-    game_speed = 5
-    AiNum = 5
+    game_speed = 50
+    AiNum = 20
     AiPlayers = [GeneticAi.Ai() for _ in range(AiNum)]  # Create AI players
 
     for i in range(AiNum):
@@ -537,9 +551,15 @@ def main():
         AiPlayers[i].set_game(curr_game)  # Set the game for each AI player
 
     for Ai in AiPlayers:
-        game_data = play_all_moves(Ai.moves)
-        play_game(game_data, game_speed)  # You can adjust the speed as needed
+        # play_game(Ai.game, game_speed)  # You can adjust the speed as needed
+        simulate_game(Ai.game)  # Simulate the shot for each AI player
 
+    best_player = best_ai_player(AiPlayers)
+    print(f"Best AI Player Fitness: {best_player.fitness}")
+    for ai in AiPlayers:
+        print(f"AI Player Fitness: {ai.fitness}")
+
+    pygame.quit()
 
 if __name__ == "__main__":
     main()
